@@ -1,0 +1,85 @@
+{
+  "last_node_id": 25,
+  "last_link_id": 27,
+  "nodes": [
+    {
+      "id": 25,
+      "type": "Lora Training in Comfy (Advanced)",
+      "pos": [
+        69.93108985206713,
+        83.18983830801395
+      ],
+      "size": {
+        "0": 315,
+        "1": 826
+      },
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "properties": {
+        "Node name for S&R": "Lora Training in Comfy (Advanced)"
+      },
+      "widgets_values": [
+        "v1-5-pruned-full-bf16.safetensors",
+        "flux1-dev.safetensors",
+        "clip_l.safetensors",
+        "t5xxl_fp8_e4m3fn.safetensors",
+        "ae.safetensors",
+        "12GB",
+        "sd1.5",
+        "networks.lora",
+        4,
+        32,
+        1,
+        "0",
+        512,
+        512,
+        "/home/felipecn/Imagens/cat/img",
+        "",
+        1,
+        10,
+        1,
+        0,
+        0,
+        0.0001,
+        0.0001,
+        "constant_with_warmup",
+        1,
+        "AdaFactor",
+        "cat",
+        "lora",
+        "bf16",
+        "bf16",
+        0,
+        2,
+        "/home/felipecn/APPS/stable-diffusion-webui-forge/models/Lora"
+      ]
+    }
+  ],
+  "links": [],
+  "groups": [
+    {
+      "title": "Group",
+      "bounding": [
+        60,
+        9,
+        335,
+        910
+      ],
+      "color": "#3f789e",
+      "font_size": 24,
+      "locked": false
+    }
+  ],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 0.8769226950000114,
+      "offset": [
+        909.1526243838517,
+        39.06751498398422
+      ]
+    }
+  },
+  "version": 0.4
+}

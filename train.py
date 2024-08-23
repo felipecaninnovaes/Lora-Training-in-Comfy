@@ -1,10 +1,9 @@
-# Original LoRA train script by @Akegarasu ; rewritten in Python by LJRE.
+# Original LoRA train script by @Akegarasu ; rewritten in Python by Felipe C. N.
 import subprocess
 import os
-import folder_paths
+import folder_paths # type: ignore
 import random
 from comfy import model_management
-import torch
 
 from .utils.formaters import value_formater
 
@@ -135,11 +134,6 @@ class LoraTraininginComfy:
             model_management.soft_empty_cache()
             
         print(model_management.current_loaded_models)
-        
-        #TODO: not sure if these are necessary
-        #loadedmodel = model_management.LoadedModel()
-        #loadedmodel.model_unload(self, current_loaded_models)
-        #=======================================================
         
         #transform backslashes into slashes for user convenience.
         train_data_dir = data_path.replace( "\\", "/")
@@ -333,8 +327,8 @@ class LoraTraininginComfyAdvanced:
         algo= "lora"
         dropout = 0.0
         train_script_name = "train_network"
-        raw_args = '--prior_loss_weight=1 --max_token_length=225 --xformers --split_mode --caption_extension=".txt"'
-        cache_args = '--cache_text_encoder_outputs --cache_text_encoder_outputs_to_disk --cache_latents_to_disk'
+        raw_args = '--prior_loss_weight=1 --max_token_length=225 --xformers --caption_extension=".txt"'
+        cache_args = '--cache_latents_to_disk'
         
         
         if model_type == "sd1.5":
@@ -345,7 +339,7 @@ class LoraTraininginComfyAdvanced:
             train_script_name = "sdxl_train_network"
         elif model_type == "flux1.0":
             # TODO: add flux_vram option if
-            flux_def = ' --persistent_data_loader_workers --max_data_loader_n_workers 2 --sdpa --gradient_checkpointing --timestep_sampling sigmoid --model_prediction_type raw --optimizer_type adafactor --network_args "train_blocks=single" --network_train_unet_only --fp8_base --highvram --guidance_scale 1.0 --loss_type l2'
+            flux_def = ' --cache_text_encoder_outputs --cache_text_encoder_outputs_to_disk --persistent_data_loader_workers --max_data_loader_n_workers 2 --sdpa --gradient_checkpointing --timestep_sampling sigmoid --model_prediction_type raw --optimizer_type adafactor --network_train_unet_only --fp8_base --highvram --guidance_scale 1.0 --loss_type l2'
             clip_l_path = folder_paths.get_full_path("clip", clip_l)
             t5xxl_path = folder_paths.get_full_path("clip", t5xxl)
             vae_path = folder_paths.get_full_path("vae", vae)
@@ -467,11 +461,10 @@ class LoraTraininginComfyAdvanced:
         print(nodespath)
         print(sd_script_dir)
         test_args = ''
-        # command = f"python -m accelerate.commands.launch " + launchargs + f'--num_cpu_threads_per_process=8 --gpu_ids="{gpu_ids}" --num_processes={num_processes} "{nodespath}" --enable_bucket --pretrained_model_name_or_path={pretrained_model} ' + fluxargs + f' --train_data_dir="{train_data_dir}" --output_dir="{output_dir}" --logging_dir="{logging_dir}" --log_prefix={output_name} --resolution={resolution} --network_module={network_module} --max_train_epochs={max_train_epoches} --learning_rate={lr} --unet_lr={unet_lr} --text_encoder_lr={text_encoder_lr} --lr_scheduler={lr_scheduler} --lr_warmup_steps={lr_warmup_steps} --lr_scheduler_num_cycles={lr_restart_cycles} --network_dim={network_dim} --network_alpha={network_alpha} --output_name={output_name} --train_batch_size={batch_size} --save_every_n_epochs={save_every_n_epochs} --mixed_precision={mixed_precision} --save_precision={save_precision} --seed={theseed} --cache_latents --prior_loss_weight=1 --max_token_length=225 --caption_extension=".txt" --save_model_as={save_model_as} --min_bucket_reso={min_bucket_reso} --max_bucket_reso={max_bucket_reso} --keep_tokens={keep_tokens} --xformers --shuffle_caption ' + extargs
-        # command_ = f"python -m accelerate.commands.launch " + launchargs + f'--num_cpu_threads_per_process=8 --gpu_ids="{gpu_ids}" --num_processes={num_processes} "{nodespath}" --enable_bucket --pretrained_model_name_or_path={pretrained_model} ' + fluxargs + f' --train_data_dir="{train_data_dir}" --output_dir="{output_dir}" --logging_dir="{logging_dir}" --log_prefix={output_name} --resolution={resolution} --network_module={network_module} --max_train_epochs={max_train_epoches} --save_every_n_epochs={save_every_n_epochs} --learning_rate={lr} --unet_lr={unet_lr} --text_encoder_lr={text_encoder_lr} --lr_scheduler={lr_scheduler} --lr_warmup_steps={lr_warmup_steps} --lr_scheduler_num_cycles={lr_restart_cycles} --network_dim={network_dim} --network_alpha={network_alpha} --output_name={output_name} --train_batch_size={batch_size} --mixed_precision={mixed_precision} --save_precision={save_precision} --seed={theseed} --save_model_as={save_model_as} --min_bucket_reso={min_bucket_reso} --max_bucket_reso={max_bucket_reso} --keep_tokens={keep_tokens} --prior_loss_weight=1 --max_token_length=225 --caption_extension=".txt" ' + extargs
         command =  f'python -m accelerate.commands.launch ' + launchargs + f'--num_cpu_threads_per_process=8 --gpu_ids="{gpu_ids}" --num_processes={num_processes} "{nodespath}" --enable_bucket --pretrained_model_name_or_path={pretrained_model} ' + fluxargs + f' --train_data_dir="{train_data_dir}" --output_dir="{output_dir}" --logging_dir="{logging_dir}" --log_prefix={output_name} --resolution={resolution} --network_module={network_module} --max_train_epochs={max_train_epoches} --save_every_n_epochs={save_every_n_epochs} --learning_rate={lr} --unet_lr={unet_lr} --text_encoder_lr={text_encoder_lr} --lr_scheduler={lr_scheduler} --lr_warmup_steps={lr_warmup_steps} --lr_scheduler_num_cycles={lr_restart_cycles} --network_dim={network_dim} --network_alpha={network_alpha} --output_name={output_name} --train_batch_size={batch_size} --mixed_precision={mixed_precision} --save_precision={save_precision} --seed={theseed} --save_model_as={save_model_as} --min_bucket_reso={min_bucket_reso} --max_bucket_reso={max_bucket_reso} --keep_tokens={keep_tokens} {cache_args} {raw_args} {test_args} {extargs}'
         print(command)
         # print(extargs)
+        # print(fluxargs)
         subprocess.run(command, shell=True,cwd=sd_script_dir)
         print("Train finished")
         return ()
