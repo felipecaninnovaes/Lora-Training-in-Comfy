@@ -50,4 +50,6 @@ Este modulo foi testado apenas em sistemas que usam como base o kernel do Linux.
 |SDXL|SIM|BOM|
 |FLUX1.0|SIM|LENTO|
 
+**Documentação:** 
 
+Em desenvolvimento.
