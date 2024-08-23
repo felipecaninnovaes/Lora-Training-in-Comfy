@@ -1,5 +1,7 @@
 huggingface-hub==0.23.3
 accelerate==0.33.0
+xformers==0.0.27
+torch==2.4.0 torchvision==0.19.0 torchaudio==2.4.0 --index-url https://download.pytorch.org/whl/cu124
 transformers==4.36.2
 diffusers[torch]==0.25.0
 ftfy==6.1.1

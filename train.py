@@ -1,10 +1,9 @@
-# Original LoRA train script by @Akegarasu ; rewritten in Python by LJRE.
+# Original LoRA train script by @Akegarasu ; rewritten in Python by Felipe C. N.
 import subprocess
 import os
-import folder_paths
+import folder_paths # type: ignore
 import random
 from comfy import model_management
-import torch
 
 from .utils.formaters import value_formater
 
@@ -78,6 +77,7 @@ os.environ['HF_HOME'] = "huggingface"
 os.environ['XFORMERS_FORCE_DISABLE_TRITON'] = "1"
 ext_args = []
 launch_args = []
+flux_args = []
 
 def GetTrainScript(script_name:str):
     # Current file directory from __file__
@@ -134,11 +134,6 @@ class LoraTraininginComfy:
             model_management.soft_empty_cache()
             
         print(model_management.current_loaded_models)
-        
-        #TODO: not sure if these are necessary
-        #loadedmodel = model_management.LoadedModel()
-        #loadedmodel.model_unload(self, current_loaded_models)
-        #=======================================================
         
         #transform backslashes into slashes for user convenience.
         train_data_dir = data_path.replace( "\\", "/")
@@ -246,8 +241,13 @@ class LoraTraininginComfyAdvanced:
          return {
             "required": {
             "ckpt_name": (folder_paths.get_filename_list("checkpoints"), ),
-            "model_type": (["sd1.5", "sd2.0", "sdxl"], ),
-            "networkmodule": (["networks.lora", "lycoris.kohya"], ),
+            "unet": (folder_paths.get_filename_list("unet"), ),
+            "clip_l": (folder_paths.get_filename_list("clip"), ),
+            "t5xxl": (folder_paths.get_filename_list("clip"), ),
+            "vae": (folder_paths.get_filename_list("vae"), ), # TODO: vae as "--ae"
+            "flux_vram": (["12GB", "16GB", "24GB"], ),
+            "model_type": (["sd1.5", "sd2.0", "sdxl", "flux1.0"], ),
+            "networkmodule": (["networks.lora", "lycoris.kohya", "networks.lora_flux"], ),
             "networkdimension": ("INT", {"default": 32, "min":0}),
             "networkalpha": ("INT", {"default":32, "min":0}),
             "num_processes": ("INT", {"default":1, "min":1}),
@@ -285,7 +285,7 @@ class LoraTraininginComfyAdvanced:
 
     CATEGORY = "LJRE/LORA"
 
-    def loratraining(self, ckpt_name, model_type, networkmodule, networkdimension, networkalpha, num_processes, gpu_ids, resolution_width, resolution_height, data_path, reg_data_dir, batch_size, max_train_epoches, save_every_n_epochs, keeptokens, minSNRgamma, learningrateText, learningrateUnet, learningRateScheduler, lrRestartCycles, optimizerType, output_name, algorithm, networkDropout, mixed_precision, save_precision, clip_skip, output_dir):
+    def loratraining(self, ckpt_name, unet, clip_l, t5xxl, vae, flux_vram, model_type, networkmodule, networkdimension, networkalpha, num_processes, gpu_ids, resolution_width, resolution_height, data_path, reg_data_dir, batch_size, max_train_epoches, save_every_n_epochs, keeptokens, minSNRgamma, learningrateText, learningrateUnet, learningRateScheduler, lrRestartCycles, optimizerType, output_name, algorithm, networkDropout, mixed_precision, save_precision, clip_skip, output_dir):
         #free memory first of all
         loadedmodels=model_management.current_loaded_models
         unloaded_model = False
@@ -313,7 +313,7 @@ class LoraTraininginComfyAdvanced:
         
 
         # #ADVANCED parameters initialization
-        # network_moduke="networks.lora" TODO: not sure if these are necessary
+        network_module=networkmodule
         network_dim=32
         network_alpha=32
         resolution = "512,512"
@@ -327,6 +327,9 @@ class LoraTraininginComfyAdvanced:
         algo= "lora"
         dropout = 0.0
         train_script_name = "train_network"
+        raw_args = '--prior_loss_weight=1 --max_token_length=225 --xformers --caption_extension=".txt"'
+        cache_args = '--cache_latents_to_disk'
+        
         
         if model_type == "sd1.5":
             ext_args.append(f"--clip_skip={clip_skip}")
@@ -334,6 +337,21 @@ class LoraTraininginComfyAdvanced:
             ext_args.append("--v2")
         elif model_type == "sdxl":
             train_script_name = "sdxl_train_network"
+        elif model_type == "flux1.0":
+            # TODO: add flux_vram option if
+            flux_def = ' --cache_text_encoder_outputs --cache_text_encoder_outputs_to_disk --persistent_data_loader_workers --max_data_loader_n_workers 2 --sdpa --gradient_checkpointing --timestep_sampling sigmoid --model_prediction_type raw --optimizer_type adafactor --network_train_unet_only --fp8_base --highvram --guidance_scale 1.0 --loss_type l2'
+            clip_l_path = folder_paths.get_full_path("clip", clip_l)
+            t5xxl_path = folder_paths.get_full_path("clip", t5xxl)
+            vae_path = folder_paths.get_full_path("vae", vae)
+            flux_args.append(f"--clip_l {clip_l_path} --t5xxl {t5xxl_path} --ae {vae_path}")
+            if flux_vram == "12GB":
+                ext_args.append('--optimizer_args "relative_step=False" "scale_parameter=False" "warmup_init=False" --split_mode --network_args "train_blocks=single"')
+            elif flux_vram == "16GB":
+                ext_args.append('--optimizer_args "relative_step=False" "scale_parameter=False" "warmup_init=False"')
+            elif flux_vram == "24GB":
+                pass
+            ext_args.append(flux_def)
+            train_script_name = "flux_train_network"
         
         network_module = networkmodule
         network_dim = networkdimension
@@ -351,6 +369,7 @@ class LoraTraininginComfyAdvanced:
         algo = algorithm
         dropout = f"{networkDropout}"
 
+        
         #Generates a random seed
         theseed = random.randint(0, 2^32-1)
         
@@ -429,16 +448,23 @@ class LoraTraininginComfyAdvanced:
 
         launchargs=' '.join(launch_args)
         extargs=' '.join(ext_args)
-
-        pretrained_model = folder_paths.get_full_path("checkpoints", ckpt_name)
+        fluxargs=' '.join(flux_args)
+        
+        if model_type == "flux1.0":
+            pretrained_model = folder_paths.get_full_path("unet", unet)
+        else:
+            pretrained_model = folder_paths.get_full_path("checkpoints", ckpt_name)
+        
         
         #Looking for the training script.
         nodespath, sd_script_dir = GetTrainScript(script_name=train_script_name)
         print(nodespath)
         print(sd_script_dir)
-
-        command = f"python -m accelerate.commands.launch " + launchargs + f'--num_cpu_threads_per_process=8 --gpu_ids="{gpu_ids}" --num_processes={num_processes} "{nodespath}" --enable_bucket --pretrained_model_name_or_path={pretrained_model} --train_data_dir="{train_data_dir}" --output_dir="{output_dir}" --logging_dir="{logging_dir}" --log_prefix={output_name} --resolution={resolution} --network_module={network_module} --max_train_epochs={max_train_epoches} --learning_rate={lr} --unet_lr={unet_lr} --text_encoder_lr={text_encoder_lr} --lr_scheduler={lr_scheduler} --lr_warmup_steps={lr_warmup_steps} --lr_scheduler_num_cycles={lr_restart_cycles} --network_dim={network_dim} --network_alpha={network_alpha} --output_name={output_name} --train_batch_size={batch_size} --save_every_n_epochs={save_every_n_epochs} --mixed_precision={mixed_precision} --save_precision={save_precision} --seed={theseed} --cache_latents --prior_loss_weight=1 --max_token_length=225 --caption_extension=".txt" --save_model_as={save_model_as} --min_bucket_reso={min_bucket_reso} --max_bucket_reso={max_bucket_reso} --keep_tokens={keep_tokens} --xformers --shuffle_caption ' + extargs
+        test_args = ''
+        command =  f'python -m accelerate.commands.launch ' + launchargs + f'--num_cpu_threads_per_process=8 --gpu_ids="{gpu_ids}" --num_processes={num_processes} "{nodespath}" --enable_bucket --pretrained_model_name_or_path={pretrained_model} ' + fluxargs + f' --train_data_dir="{train_data_dir}" --output_dir="{output_dir}" --logging_dir="{logging_dir}" --log_prefix={output_name} --resolution={resolution} --network_module={network_module} --max_train_epochs={max_train_epoches} --save_every_n_epochs={save_every_n_epochs} --learning_rate={lr} --unet_lr={unet_lr} --text_encoder_lr={text_encoder_lr} --lr_scheduler={lr_scheduler} --lr_warmup_steps={lr_warmup_steps} --lr_scheduler_num_cycles={lr_restart_cycles} --network_dim={network_dim} --network_alpha={network_alpha} --output_name={output_name} --train_batch_size={batch_size} --mixed_precision={mixed_precision} --save_precision={save_precision} --seed={theseed} --save_model_as={save_model_as} --min_bucket_reso={min_bucket_reso} --max_bucket_reso={max_bucket_reso} --keep_tokens={keep_tokens} {cache_args} {raw_args} {test_args} {extargs}'
         print(command)
+        # print(extargs)
+        # print(fluxargs)
         subprocess.run(command, shell=True,cwd=sd_script_dir)
         print("Train finished")
         return ()
